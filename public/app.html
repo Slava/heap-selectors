@@ -1,0 +1,38 @@
+<html>
+<head>
+	<title>Test page</title>
+	<script type="text/javascript" src="http://code.jquery.com/jquery-1.9.1.min.js"></script>
+</head>
+<body>
+
+	<div class="blue red green" id="outside">
+		<div id="inside" class="black white">
+			<span id="text">Bla bla bla</span>
+			<img src="https://www.google.com/images/srpr/logo4w.png" class="logo">
+		</div>
+		<div>
+			<p class="maintext someother tag">main text goes here</p>
+		</div>
+	</div>
+
+	<script type="text/javascript">
+		$('*').click(function(e){
+			var element = e.currentTarget;
+			var res = [];
+
+			while (element != document) {
+				res.push({
+					tagName: element.tagName,
+					id: element.id,
+					classes: (element.className || '').split(' ')
+				});
+
+				element = element.parentNode;
+			}
+
+			$.post('/', { objects: res });
+		});
+	</script>
+
+</body>
+</html>

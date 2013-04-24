@@ -1,0 +1,106 @@
+TODAY
+
+Initial email:
+	Goal:
+		Add hierarchy to our CSS selectors.
+
+	Specifics:
+		We let developers define events post-hoc by specifying an event type ("click") on an event target ("span.title")
+		Currently, post-hoc CSS selectors only support tagnames/ids/classes
+		We want CSS selectors to support:
+			child selectors ("div > p")
+			descendant selectors ("div p")
+			classes/ids included as part of parent and/or child ("div#header > p.sub")
+
+	Milestones:
+		Determine representation of incoming event targets. Basically, how do you encode the targets (e.g. "html > body > div.main > a.article") sent from the client to the server?
+		Determine database schema for storing these event targets and hierarchies.
+		Write script that generates some random target data (as if it originated from the client), organizes the data, and stores it in a local Postgres DB.
+		Write script that takes as input a CSS selector (as described above) and returns all the event targets in the DB that match the selector.
+
+	Resources:
+		ltree module in PostgreSQL: http://www.postgresql.org/docs/9.2/static/ltree.html
+
+
+
+What is done:
+	simplest page and jquery script that handles all clicks
+	read about ltree, understand what can it give me
+
+	send all click events in form of (tagname, id, [classes])
+	store them as a keypaths ltree
+
+	get css selector parser
+	parse selector to keypath lquery
+	
+What is next:
+
+Sending data to server from client:
+	send dumb json:
+	[{
+		tagName: 'html'
+	}, {
+		tagName: 'body'
+	}, {
+		tagName: 'div',
+		classes: ['blue', 'green', 'red'],
+		id: 'outside'
+	}]
+
+DB Schema ideas:
+	idea 1:
+		store ltree equivalent of DOM tree events
+		every label represents one DOM node
+		in for of tagname_id_class1_class2_class3
+		if no id, then tagname_noid_class1_class2_class3
+		classes are sorted lexigraphically
+
+		idea is bad, %*@ are used only for matching prefix
+
+	idea 2:
+		store three columns (tagname - ltree path, id - ltree path, classes - lquery)
+		now for matching by tagname is just matching with some lquery
+		same for ids
+		for classes, we have some criteria for classes. 
+		Ex.: .classA.classB means classes column should match both 'classA' and 'classB' when classes column is something like 'classA|classB|classC'
+		
+		so class column should be lquery in form of '!classA|classB|classC'
+		now none of selection classes should match it
+
+		(selection[] ~ classLquery) IS FALSE
+
+		then how do I check for some selector: 'div.classA.classB div.classC.classD'?
+		I need to check for both ancestor and descendant matching with lquery of both labels in path and it fails
+
+	idea 3:
+		let's drop selectors with multiple classes on the same element
+		so in DOM tree element can belong to multiple classes but allowed CSS selectors do not have more than 1 class definition per element
+		then most sophisticated example is
+			div.classA#main div.classB#test > span.selection#sel
+
+		now let's take idea 2 and adjust to case
+
+		class column is lquery in form of '*.classA|classB|classC.classD|classE|classF.*'
+
+		it is bad idea, cause class columns represented as lquery of such form is useless, we can't query it
+
+	idea 4:
+		store classes path in form of '[][(ClassA)(ClassB)(ClassC)][(ClassD)(ClassE)(ClassF)]'
+		and then looking for some class match with regular expression with SIMILAR keyword. 
+		Ex.: '.*[.*(ClassB).*(ClassC).*].*[.*(ClassE)]' for selector '.ClassB.ClassC .ClassE'
+
+
+Notes:
+	Postgresql ltree:
+		Data type which is keypath of labels separated by dots, labels are [A-Za-z0-9_]
+		lquery is a regex like type of query
+		label can have underscore and we can query this with %
+
+		% checks only for prefix in undescore separated words in label
+
+	Escape id names (escape -, ., :, _)
+
+Questions:
+	What are indexes in postgresql
+
+
